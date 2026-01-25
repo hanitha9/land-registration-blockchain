@@ -60,3 +60,25 @@ network/land-network/organizations/fabric-ca/ordererOrg/fabric-ca-server.db
 # Temporary files
 *.tmp
 *.temp
+
+# Hyperledger Fabric binaries
+bin/
+*.block
+
+# Fabric crypto materials (if regenerated)
+network/land-network/organizations/peerOrganizations/
+network/land-network/organizations/ordererOrganizations/
+
+# Fabric channel artifacts
+network/land-network/channel-artifacts/
+
+# Node modules (if not already ignored)
+node_modules/
+package-lock.json
+
+# Environment files
+.env
+
+# Upload directories
+backend/uploads/*
+!backend/uploads/.gitkeep
