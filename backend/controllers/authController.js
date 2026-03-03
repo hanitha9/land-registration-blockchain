@@ -1,9 +1,11 @@
+// backend/controllers/authController.js
 const User = require('../models/User');
-const OTP = require('../models/OTP');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { verifyAadhaar, verifyPan } = require('../utils/ocrService');
-const { generateOTP, sendOTP } = require('../utils/otpService');
+
+// ✅ FIX 1: Import as instances, NOT destructured — class methods need 'this' context
+const ocrService = require('../services/ocrService');
+const otpService = require('../services/otpService');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -16,23 +18,24 @@ const generateToken = (id) => {
 exports.signupStep1 = async (req, res) => {
   try {
     const { fullName, aadhaarNumber } = req.body;
-    
+    const files = req.files;
+
     console.log('\n=== Signup Step 1: Aadhaar Verification ===');
     console.log('Name:', fullName);
     console.log('Aadhaar:', aadhaarNumber);
 
-    if (!req.files || !req.files.aadhaarDocument) {
+    if (!files || !files.aadhaarDocument) {
       return res.status(400).json({
         success: false,
         message: 'Please upload Aadhaar document'
       });
     }
 
-    const aadhaarImage = req.files.aadhaarDocument[0].path;
-    
-    // Verify Aadhaar using OCR
-    const verificationResult = await verifyAadhaar(aadhaarImage, fullName, aadhaarNumber);
-    
+    const aadhaarImage = files.aadhaarDocument[0].path;
+
+    // ✅ FIX 1 applied: ocrService.verifyAadhaar instead of verifyAadhaar
+    const verificationResult = await ocrService.verifyAadhaar(aadhaarImage, fullName, aadhaarNumber);
+
     if (!verificationResult.success) {
       return res.status(400).json({
         success: false,
@@ -40,7 +43,7 @@ exports.signupStep1 = async (req, res) => {
       });
     }
 
-    // Store in session/temp (you might want to use Redis in production)
+    // ✅ Return document path so frontend can store and send it in completeSignup
     res.status(200).json({
       success: true,
       message: 'Aadhaar verified successfully',
@@ -48,7 +51,8 @@ exports.signupStep1 = async (req, res) => {
         fullName,
         aadhaarNumber,
         aadhaarDocument: aadhaarImage,
-        aadhaarVerified: true
+        aadhaarVerified: true,
+        extractedName: verificationResult.extractedName
       }
     });
   } catch (error) {
@@ -64,23 +68,24 @@ exports.signupStep1 = async (req, res) => {
 exports.signupStep2 = async (req, res) => {
   try {
     const { fullName, panNumber } = req.body;
-    
+    const files = req.files;
+
     console.log('\n=== Signup Step 2: PAN Verification ===');
     console.log('Name:', fullName);
     console.log('PAN:', panNumber);
 
-    if (!req.files || !req.files.panDocument) {
+    if (!files || !files.panDocument) {
       return res.status(400).json({
         success: false,
         message: 'Please upload PAN document'
       });
     }
 
-    const panImage = req.files.panDocument[0].path;
-    
-    // Verify PAN using OCR
-    const verificationResult = await verifyPan(panImage, fullName, panNumber);
-    
+    const panImage = files.panDocument[0].path;
+
+    // ✅ FIX 1 applied: ocrService.verifyPan instead of verifyPan
+    const verificationResult = await ocrService.verifyPan(panImage, fullName, panNumber);
+
     if (!verificationResult.success) {
       return res.status(400).json({
         success: false,
@@ -88,13 +93,15 @@ exports.signupStep2 = async (req, res) => {
       });
     }
 
+    // ✅ Return document path so frontend can store and send it in completeSignup
     res.status(200).json({
       success: true,
       message: 'PAN verified successfully',
       data: {
         panNumber,
         panDocument: panImage,
-        panVerified: true
+        panVerified: true,
+        extractedName: verificationResult.extractedName
       }
     });
   } catch (error) {
@@ -110,7 +117,7 @@ exports.signupStep2 = async (req, res) => {
 exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber } = req.body;
-    
+
     console.log('\n=== Sending OTP ===');
     console.log('Mobile:', mobileNumber);
 
@@ -121,20 +128,9 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // Generate OTP
-    const otp = generateOTP();
-    
-    // Save OTP to database
-    await OTP.findOneAndUpdate(
-      { mobileNumber },
-      { otp, createdAt: new Date() },
-      { upsert: true, new: true }
-    );
-
-    // Send OTP (in dev mode, just log it)
-    await sendOTP(mobileNumber, otp);
-    
-    console.log(`🔐 OTP for ${mobileNumber}: ${otp}`);
+    // ✅ FIX 2: otpService handles DB save + SMS + console log
+    const otp = otpService.generateOTP();
+    await otpService.sendOTP(mobileNumber, otp);
 
     res.status(200).json({
       success: true,
@@ -153,45 +149,24 @@ exports.sendOTP = async (req, res) => {
 exports.verifyOTP = async (req, res) => {
   try {
     const { mobileNumber, otp } = req.body;
-    
+
     console.log('\n=== Verifying OTP ===');
     console.log('Mobile:', mobileNumber);
     console.log('OTP:', otp);
 
-    const otpRecord = await OTP.findOne({ mobileNumber });
+    const result = await otpService.verifyOTP(mobileNumber, otp);
 
-    if (!otpRecord) {
+    if (!result.success) {
       return res.status(400).json({
         success: false,
-        message: 'OTP not found. Please request a new one.'
+        message: result.message || 'Invalid OTP'
       });
     }
-
-    // Check if OTP is expired (5 minutes)
-    const otpAge = Date.now() - otpRecord.createdAt.getTime();
-    if (otpAge > 5 * 60 * 1000) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP expired. Please request a new one.'
-      });
-    }
-
-    if (otpRecord.otp !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
-    }
-
-    // Delete used OTP
-    await OTP.deleteOne({ mobileNumber });
 
     res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
-      data: {
-        mobileVerified: true
-      }
+      data: { mobileVerified: true }
     });
   } catch (error) {
     console.error('Verify OTP Error:', error);
@@ -211,23 +186,47 @@ exports.completeSignup = async (req, res) => {
     const {
       fullName,
       aadhaarNumber,
+      aadhaarDocument,   // ✅ FIX 3: server-side path from step 1 response
       panNumber,
+      panDocument,       // ✅ FIX 3: server-side path from step 2 response
       mobileNumber,
       email,
       password,
       dateOfBirth,
+      maritalStatus,
+      occupation,
       gender,
       fatherName,
       motherName,
       address
     } = req.body;
 
-    // Check if user already exists
+    // Validate with clear messages before hitting Mongoose
+    if (!aadhaarDocument) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aadhaar document path missing. Please redo Aadhaar verification.'
+      });
+    }
+    if (!panDocument) {
+      return res.status(400).json({
+        success: false,
+        message: 'PAN document path missing. Please redo PAN verification.'
+      });
+    }
+    if (!maritalStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Marital status is required.'
+      });
+    }
+
+    // Check for duplicate user
     const existingUser = await User.findOne({
       $or: [
         { aadhaarNumber },
         { mobileNumber },
-        { email: email || undefined }
+        ...(email ? [{ email }] : [])
       ]
     });
 
@@ -238,33 +237,31 @@ exports.completeSignup = async (req, res) => {
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
+    // ✅ FIX 4: Pass plain password — User model pre('save') hook hashes it
+    // DO NOT bcrypt.hash() here — double hashing breaks login forever
     const user = await User.create({
       fullName,
       aadhaarNumber,
+      aadhaarDocument,
+      aadhaarVerified: true,
       panNumber: panNumber || undefined,
+      panDocument,
+      panVerified: !!panNumber,
       mobileNumber,
+      mobileVerified: true,
       email: email || undefined,
-      password: hashedPassword,
+      password,
       dateOfBirth: dateOfBirth || undefined,
+      maritalStatus,
+      occupation: occupation || undefined,
       gender: gender || undefined,
       fatherName: fatherName || undefined,
       motherName: motherName || undefined,
       address: address || {},
-      kycStatus: {
-        aadhaar: true,
-        pan: !!panNumber,
-        mobile: true
-      }
+      kycCompleted: true
     });
 
-    // Generate token
     const token = generateToken(user._id);
-
     console.log('✅ User created successfully:', user._id);
 
     res.status(201).json({
@@ -276,7 +273,8 @@ exports.completeSignup = async (req, res) => {
         fullName: user.fullName,
         aadhaarNumber: user.aadhaarNumber,
         mobileNumber: user.mobileNumber,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -292,33 +290,23 @@ exports.completeSignup = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { aadhaarNumber, password } = req.body;
-    
+
     console.log('\n=== Login Attempt ===');
     console.log('Aadhaar:', aadhaarNumber);
 
-    // Find user
     const user = await User.findOne({ aadhaarNumber }).select('+password');
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Generate token
     const token = generateToken(user._id);
-
     console.log('✅ Login successful:', user._id);
 
     res.status(200).json({
@@ -332,15 +320,60 @@ exports.login = async (req, res) => {
         mobileNumber: user.mobileNumber,
         email: user.email,
         profilePhoto: user.profilePhoto,
-        kycStatus: user.kycStatus
+        role: user.role,
+        kycCompleted: user.kycCompleted,
+        requiresProfileCompletion: user.requiresProfileCompletion || false
       }
     });
   } catch (error) {
     console.error('Login Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error logging in: ' + error.message
+    res.status(500).json({ success: false, message: 'Error logging in: ' + error.message });
+  }
+};
+
+// Officer Login
+exports.officerLogin = async (req, res) => {
+  try {
+    const { employeeId, password } = req.body;
+
+    console.log('\n=== Officer Login Attempt ===');
+    console.log('Employee ID:', employeeId);
+
+    const user = await User.findOne({ employeeId }).select('+password');
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    if (!['revenue_officer', 'bank_manager', 'sub_registrar', 'admin'].includes(user.role)) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = generateToken(user._id);
+    console.log('✅ Officer login successful:', user._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        employeeId: user.employeeId,
+        department: user.department,
+        role: user.role,
+        bankId: user.bankId
+      }
     });
+  } catch (error) {
+    console.error('Officer Login Error:', error);
+    res.status(500).json({ success: false, message: 'Error logging in: ' + error.message });
   }
 };
 
@@ -350,10 +383,7 @@ exports.getProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     res.status(200).json({
@@ -367,19 +397,25 @@ exports.getProfile = async (req, res) => {
         email: user.email,
         dateOfBirth: user.dateOfBirth,
         gender: user.gender,
+        maritalStatus: user.maritalStatus,
+        occupation: user.occupation,
         fatherName: user.fatherName,
         motherName: user.motherName,
         address: user.address,
         profilePhoto: user.profilePhoto,
-        kycStatus: user.kycStatus
+        role: user.role,
+        kycCompleted: user.kycCompleted,
+        aadhaarVerified: user.aadhaarVerified,
+        panVerified: user.panVerified,
+        mobileVerified: user.mobileVerified,
+        employeeId: user.employeeId,
+        department: user.department,
+        bankId: user.bankId
       }
     });
   } catch (error) {
     console.error('Get Profile Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching profile: ' + error.message
-    });
+    res.status(500).json({ success: false, message: 'Error fetching profile: ' + error.message });
   }
 };
 
@@ -387,10 +423,7 @@ exports.getProfile = async (req, res) => {
 exports.uploadProfilePhoto = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please upload a photo'
-      });
+      return res.status(400).json({ success: false, message: 'Please upload a photo' });
     }
 
     const user = await User.findByIdAndUpdate(
@@ -406,10 +439,7 @@ exports.uploadProfilePhoto = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload Photo Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading photo: ' + error.message
-    });
+    res.status(500).json({ success: false, message: 'Error uploading photo: ' + error.message });
   }
 };
 

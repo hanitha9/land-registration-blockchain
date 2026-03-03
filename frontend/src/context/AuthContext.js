@@ -1,3 +1,4 @@
+// frontend/src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authApi';
 
@@ -17,7 +18,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
     if (token) {
       loadUser();
     } else {
@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }) => {
   const loadUser = async () => {
     try {
       const response = await authService.getProfile();
-      setUser(response.user); // Changed from response.data to response.user
+      // ✅ axios wraps body in response.data
+      setUser(response.data?.user || response.data);
     } catch (error) {
       console.error('Failed to load user:', error);
       logout();
@@ -38,17 +39,32 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (aadhaarNumber, password) => {
-    const response = await authService.login(aadhaarNumber, password);
-    setToken(response.token);
-    setUser(response.user); // Changed from response.data to response.user
-    localStorage.setItem('token', response.token);
-    return response;
+    const response = await authService.login({ aadhaarNumber, password });
+    // ✅ FIX: axios response body is at response.data, not response
+    const { token, user } = response.data;
+    setToken(token);
+    setUser(user);
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    return response.data;
+  };
+
+  const officerLogin = async (employeeId, password) => {
+    const response = await authService.officerLogin({ employeeId, password });
+    // ✅ FIX: same axios nesting fix
+    const { token, user } = response.data;
+    setToken(token);
+    setUser(user);
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    return response.data;
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
 
   const updateUser = (userData) => {
@@ -60,9 +76,10 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     login,
+    officerLogin,
     logout,
     setUser,
-    updateUser // Added this
+    updateUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

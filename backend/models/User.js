@@ -17,20 +17,35 @@ const userSchema = new mongoose.Schema({
     default: generateUserId
   },
 
-  // Role: USER or AUTHORITY
+  // Role-based access control
   role: {
     type: String,
-    enum: ['USER', 'AUTHORITY'],
-    default: 'USER'
+    enum: ['citizen', 'revenue_officer', 'bank_manager', 'sub_registrar', 'admin'],
+    default: 'citizen'
   },
 
-  // Employee ID (for AUTHORITY only)
+  // For officers only
   employeeId: {
     type: String,
     unique: true,
-    sparse: true  // Allows null for regular users
+    sparse: true
   },
   
+  department: {
+    type: String,
+    enum: ['Revenue Department', 'Bank', 'Registration Department', 'IT Department']
+  },
+  
+  designation: {
+    type: String,
+    enum: ['Officer', 'Manager', 'Senior Manager', 'Administrator']
+  },
+  
+  bankId: {
+    type: String,
+    sparse: true
+  },
+
   // Personal Information
   fullName: {
     type: String,
@@ -41,14 +56,14 @@ const userSchema = new mongoose.Schema({
   // Aadhaar Details
   aadhaarNumber: {
     type: String,
-    required: function() { return this.role === 'USER'; },
+    required: function() { return this.role === 'citizen'; },
     unique: true,
     sparse: true,
     match: /^[0-9]{12}$/
   },
   aadhaarDocument: {
     type: String,
-    required: function() { return this.role === 'USER'; }
+    required: function() { return this.role === 'citizen'; }
   },
   aadhaarVerified: {
     type: Boolean,
@@ -59,14 +74,14 @@ const userSchema = new mongoose.Schema({
   // PAN Details
   panNumber: {
     type: String,
-    required: function() { return this.role === 'USER'; },
+    required: function() { return this.role === 'citizen'; },
     unique: true,
     sparse: true,
     match: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
   },
   panDocument: {
     type: String,
-    required: function() { return this.role === 'USER'; }
+    required: function() { return this.role === 'citizen'; }
   },
   panVerified: {
     type: Boolean,
@@ -77,7 +92,7 @@ const userSchema = new mongoose.Schema({
   // Contact
   mobileNumber: {
     type: String,
-    required: function() { return this.role === 'USER'; },
+    required: function() { return this.role === 'citizen'; },
     unique: true,
     sparse: true,
     match: /^[0-9]{10}$/
@@ -97,12 +112,12 @@ const userSchema = new mongoose.Schema({
   // Personal Details
   dateOfBirth: {
     type: Date,
-    required: function() { return this.role === 'USER'; }
+    required: function() { return this.role === 'citizen'; }
   },
   maritalStatus: {
     type: String,
     enum: ['Single', 'Married', 'Divorced', 'Widowed'],
-    required: function() { return this.role === 'USER'; }
+    required: function() { return this.role === 'citizen'; }
   },
   occupation: String,
   
@@ -163,6 +178,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  requiresProfileCompletion: {
+    type: Boolean,
+    default: false
+  },
   
   // Timestamps
   createdAt: {
@@ -194,4 +213,3 @@ userSchema.methods.checkKYCStatus = function() {
 };
 
 module.exports = mongoose.model('User', userSchema);
-

@@ -1,87 +1,118 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
+
+// Pages
 import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import Signup from './pages/Signup';
-import Login from './pages/Login';
-import AuthorityLogin from './pages/AuthorityLogin';
-import AuthorityDashboard from './pages/AuthorityDashboard';
-import Profile from './pages/Profile';
-import RegisterLand from './pages/RegisterLandNew';
-import RegisterLandWithHistory from './pages/RegisterLandWithHistory';
-import RegisterLandWithoutHistory from './pages/RegisterLandWithoutHistory';
-import Payment from './pages/Payment';
+import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
 
-// Protected Route Component for Users
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
-      </div>
-    );
-  }
-  
-  return user ? children : <Navigate to="/login" />;
-};
+// Dashboards
+import CitizenDashboard from './pages/dashboards/CitizenDashboard';
+import RevenueOfficerDashboard from './pages/dashboards/RevenueOfficerDashboard';
+import BankManagerDashboard from './pages/dashboards/BankManagerDashboard';
+import SubRegistrarDashboard from './pages/dashboards/SubRegistrarDashboard';
 
-// Authority Route Component (no Navbar)
-const AuthorityRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  const authorityUser = JSON.parse(localStorage.getItem('authorityUser') || '{}');
-  
-  if (!token || authorityUser.role !== 'AUTHORITY') {
-    return <Navigate to="/authority/login" />;
-  }
-  
-  return children;
-};
+// Land Management
+import RequestLandRegistration from './pages/land/RequestLandRegistration';
+import ApplyLoan from './pages/land/ApplyLoan';
+import InitiateSale from './pages/land/InitiateSale';
+import LandDetail from './pages/land/LandDetail';
 
-function AppContent() {
-  const { user } = useAuth();
-  
-  return (
-    <Routes>
-      {/* Authority Routes - No Navbar */}
-      <Route path="/authority/login" element={<AuthorityLogin />} />
-      <Route path="/authority/dashboard" element={<AuthorityRoute><AuthorityDashboard /></AuthorityRoute>} />
-      
-      {/* User Routes - With Navbar */}
-      <Route path="/*" element={
-        <div className="App">
-          <Navbar />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/signup" element={user ? <Navigate to="/profile" /> : <Signup />} />
-            <Route path="/login" element={user ? <Navigate to="/profile" /> : <Login />} />
-            
-            {/* Protected Routes */}
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            
-            {/* Register Land Routes */}
-            <Route path="/register" element={<ProtectedRoute><RegisterLand /></ProtectedRoute>} />
-            <Route path="/register-land" element={<ProtectedRoute><RegisterLand /></ProtectedRoute>} />
-            <Route path="/register-land/with-history" element={<ProtectedRoute><RegisterLandWithHistory /></ProtectedRoute>} />
-            <Route path="/register-land/without-history" element={<ProtectedRoute><RegisterLandWithoutHistory /></ProtectedRoute>} />
-            <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
-          </Routes>
-        </div>
-      } />
-    </Routes>
-  );
-}
+// Revenue Officer Pages
+import ViewAllLands from './pages/land/ViewAllLands';
+import ManageDisputes from './pages/land/ManageDisputes';
+
+// Sub-Registrar Pages
+import TransferReview from './pages/land/TransferReview';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <AppContent />
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <CitizenDashboard />
+              </ProtectedRoute>
+            } />
+
+            {/* Role-specific Dashboards */}
+            <Route path="/revenue-dashboard" element={
+              <ProtectedRoute allowedRoles={['revenue_officer', 'admin']}>
+                <RevenueOfficerDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/bank-dashboard" element={
+              <ProtectedRoute allowedRoles={['bank_manager']}>
+                <BankManagerDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/registrar-dashboard" element={
+              <ProtectedRoute allowedRoles={['sub_registrar']}>
+                <SubRegistrarDashboard />
+              </ProtectedRoute>
+            } />
+
+            {/* Land Management */}
+            <Route path="/request-land-registration" element={
+              <ProtectedRoute allowedRoles={['citizen']}>
+                <RequestLandRegistration />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/apply-loan" element={
+              <ProtectedRoute allowedRoles={['citizen']}>
+                <ApplyLoan />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/initiate-sale" element={
+              <ProtectedRoute allowedRoles={['citizen']}>
+                <InitiateSale />
+              </ProtectedRoute>
+            } />
+
+            {/* Land Detail — accessible by all roles */}
+            <Route path="/land/:landId" element={
+              <ProtectedRoute>
+                <LandDetail />
+              </ProtectedRoute>
+            } />
+
+            {/* Revenue Officer Pages */}
+            <Route path="/view-all-lands" element={
+              <ProtectedRoute allowedRoles={['revenue_officer', 'admin']}>
+                <ViewAllLands />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/manage-disputes" element={
+              <ProtectedRoute allowedRoles={['revenue_officer', 'admin']}>
+                <ManageDisputes />
+              </ProtectedRoute>
+            } />
+
+            {/* Sub-Registrar Pages */}
+            <Route path="/review-transfer/:transferId" element={
+              <ProtectedRoute allowedRoles={['sub_registrar', 'admin']}>
+                <TransferReview />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </div>
       </Router>
     </AuthProvider>
   );

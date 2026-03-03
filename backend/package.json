@@ -1,31 +1,32 @@
 {
-  "name": "backend",
+  "name": "land-registry-backend",
   "version": "1.0.0",
+  "description": "Backend for Blockchain-Based Land Registry System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "enroll-admin": "node enrollAdmin.js",
-    "register-user": "node registerUser.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon server.js",
+    "seed": "node seeds/index.js",
+    "seed:fresh": "node seeds/index.js --fresh"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "body-parser": "^1.20.3",
+    "@heroicons/react": "^2.2.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^4.21.2",
-    "express-validator": "^7.3.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "fabric-ca-client": "^2.2.20",
     "fabric-network": "^2.2.20",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^8.21.0",
-    "multer": "^2.0.2",
-    "sharp": "^0.34.5",
-    "tesseract.js": "^7.0.0",
-    "twilio": "^5.11.2"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.4",
+    "sharp": "^0.32.5",
+    "tesseract.js": "^4.1.0",
+    "twilio": "^4.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }

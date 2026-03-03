@@ -1,23 +1,29 @@
-'use strict';
-
+// backend/routes/landRoutes.js
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const landController = require('../controllers/landController');
+const upload = require('../utils/uploadMiddleware');
 
-// Register new land
-router.post('/register', landController.registerLand);
+// ── Must come BEFORE /:landId routes ──────────────────────────────────────────
 
-// Get specific land
-router.get('/:landId', landController.getLand);
+// Land registration (multipart)
+router.post('/request-registration', protect, upload.fields([
+  { name: 'landDocument', maxCount: 1 },
+  { name: 'landPhotos', maxCount: 10 }
+]), landController.requestLandRegistration);
 
-// Get all lands
-router.get('/', landController.getAllLands);
+// Citizen actions — flat routes matching frontend landApi.js
+router.post('/apply-loan',    protect, landController.applyLoan);
+router.post('/initiate-sale', protect, landController.initiateSale);
 
-// Transfer land
-router.put('/:landId/transfer', landController.transferLand);
+// Get my lands
+router.get('/my-lands', protect, landController.getMyLands);
 
-// Delete land
-router.delete('/:landId', landController.deleteLand);
+// ── /:landId routes AFTER flat routes ─────────────────────────────────────────
+router.get('/:landId',         protect, landController.getLand);
+router.get('/:landId/blockchain', protect, landController.getLandById);
+router.get('/:landId/blockchain', protect, landController.getLandById);
+router.get('/:landId/history', protect, landController.getLandHistory);
 
 module.exports = router;
-

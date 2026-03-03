@@ -1,86 +1,56 @@
-const OTP = require('../models/OTP');
+// OTP Service - Simple & Bulletproof
+// For production, integrate Twilio, MSG91, or similar SMS provider
 
-class OTPService {
-  constructor() {
-    // Check if Twilio credentials are provided
-    this.twilioEnabled = process.env.TWILIO_ACCOUNT_SID && 
-                         process.env.TWILIO_ACCOUNT_SID.startsWith('AC') &&
-                         process.env.TWILIO_AUTH_TOKEN;
-    
-    if (this.twilioEnabled) {
-      const twilio = require('twilio');
-      this.client = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
-      console.log('Twilio SMS service enabled');
-    } else {
-      console.log('Twilio not configured - OTPs will be logged to console');
-    }
-  }
-  
-  // Generate 6-digit OTP
-  generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-  
-  // Send OTP via SMS
-  async sendOTP(mobileNumber) {
-    try {
-      const otp = this.generateOTP();
-      
-      // Save OTP to database
-      await OTP.create({
-        mobileNumber,
-        otp
-      });
-      
-      // Send SMS if Twilio is configured
-      if (this.twilioEnabled) {
-        try {
-          await this.client.messages.create({
-            body: `Your Land Registry verification OTP is: ${otp}. Valid for 5 minutes.`,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: `+91${mobileNumber}`
-          });
-          console.log(`OTP sent via SMS to ${mobileNumber}`);
-        } catch (smsError) {
-          console.error('SMS sending failed:', smsError.message);
-          // Continue anyway - OTP is saved in DB
-        }
-      }
-      
-      // For development: ALWAYS log OTP to console
-      console.log(`\n🔐 OTP for ${mobileNumber}: ${otp}\n`);
-      
-      return { success: true, message: 'OTP sent successfully' };
-    } catch (error) {
-      console.error('OTP Send Error:', error);
-      throw new Error('Failed to send OTP');
-    }
-  }
-  
-  // Verify OTP
-  async verifyOTP(mobileNumber, otp) {
-    try {
-      const otpRecord = await OTP.findOne({
-        mobileNumber,
-        otp
-      }).sort({ createdAt: -1 });
-      
-      if (!otpRecord) {
-        return { success: false, message: 'Invalid OTP' };
-      }
-      
-      // Delete OTP after verification
-      await OTP.deleteOne({ _id: otpRecord._id });
-      
-      return { success: true, message: 'OTP verified successfully' };
-    } catch (error) {
-      console.error('OTP Verify Error:', error);
-      throw new Error('Failed to verify OTP');
-    }
-  }
-}
+// Generate a 6-digit OTP
+const generateOTP = () => {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  console.log('Generated OTP:', otp);
+  return otp;
+};
 
-module.exports = new OTPService();
+// Send OTP - ALWAYS succeeds in development (just logs to console)
+const sendOTP = async (mobileNumber, otp) => {
+  console.log('\n' + '='.repeat(50));
+  console.log('📱 OTP SERVICE - DEVELOPMENT MODE');
+  console.log('='.repeat(50));
+  console.log(`📞 Mobile Number: ${mobileNumber}`);
+  console.log(`🔐 OTP Code: ${otp}`);
+  console.log('='.repeat(50));
+  console.log('⚠️  Copy this OTP and enter it in the frontend');
+  console.log('='.repeat(50) + '\n');
+  
+  // In development, always return success
+  // The OTP is logged above - user copies it manually
+  return { success: true, message: 'OTP sent successfully' };
+  
+  /* 
+  // PRODUCTION CODE - Uncomment when you have Twilio credentials
+  
+  const twilio = require('twilio');
+  const client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
+  
+  await client.messages.create({
+    body: `Your Land Registry OTP is: ${otp}. Valid for 5 minutes.`,
+    from: process.env.TWILIO_PHONE_NUMBER,
+    to: `+91${mobileNumber}`
+  });
+  
+  return { success: true, message: 'OTP sent via SMS' };
+  */
+};
+
+// Verify OTP helper (optional - verification is done in authController)
+const verifyOTPCode = (inputOTP, storedOTP) => {
+  if (!inputOTP || !storedOTP) return false;
+  return inputOTP.toString().trim() === storedOTP.toString().trim();
+};
+
+// Export individual functions (NOT a class)
+module.exports = {
+  generateOTP,
+  sendOTP,
+  verifyOTPCode
+};

@@ -115,16 +115,35 @@ class FabricNetwork {
             const provider = wallet.getProviderRegistry().getProvider(adminIdentity.type);
             const adminUser = await provider.getUserContext(adminIdentity, 'admin');
 
-            const secret = await ca.register({
-                affiliation: 'org1.department1',
-                enrollmentID: username,
-                role: 'client'
-            }, adminUser);
+            let secret;
+            try {
+                secret = await ca.register({
+                    affiliation: 'org1.department1',
+                    enrollmentID: username,
+                    role: 'client'
+                }, adminUser);
+            } catch (registerErr) {
+                if (registerErr.message && registerErr.message.includes('already registered')) {
+                    console.log(`User ${username} already registered in CA — re-enrolling with default secret`);
+                    secret = username + 'pw'; // default secret pattern
+                } else {
+                    throw registerErr;
+                }
+            }
 
-            const enrollment = await ca.enroll({
-                enrollmentID: username,
-                enrollmentSecret: secret
-            });
+            let enrollment;
+            try {
+                enrollment = await ca.enroll({
+                    enrollmentID: username,
+                    enrollmentSecret: secret
+                });
+            } catch(enrollErr) {
+                // Try with 'appUserpw' as fallback secret
+                enrollment = await ca.enroll({
+                    enrollmentID: username,
+                    enrollmentSecret: 'appUserpw'
+                });
+            }
 
             const x509Identity = {
                 credentials: {

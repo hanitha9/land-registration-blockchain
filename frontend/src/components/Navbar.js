@@ -1,133 +1,99 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaHome, FaPlus, FaList, FaUser, FaSignInAlt, FaUserPlus, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
+import NotificationBell from './NotificationBell';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowProfileDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Handle logout
   const handleLogout = () => {
     logout();
-    setShowProfileDropdown(false);
     navigate('/login');
   };
 
-  // Handle profile click
-  const handleProfileClick = () => {
-    setShowProfileDropdown(false);
-    navigate('/profile');
-  };
-
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center py-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <FaHome className="text-white text-2xl" />
-            <span className="text-white text-2xl font-bold">Land Registry</span>
-          </Link>
-          
-          {/* Navigation Links */}
-          <div className="flex items-center space-x-6">
-            {/* Home - Always visible */}
-            <Link 
-              to="/" 
-              className="text-white hover:text-blue-200 transition duration-300 flex items-center space-x-2"
-            >
-              <FaHome />
-              <span>Home</span>
+    <nav className="bg-white shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-xl font-bold text-indigo-600">Land Registry</span>
             </Link>
-            
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              {user && user.role === 'citizen' && (
+                <>
+                  <Link to="/dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                    Dashboard
+                  </Link>
+                  <Link to="/request-land-registration" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                    Register Land
+                  </Link>
+                  <Link to="/apply-loan" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                    Apply Loan
+                  </Link>
+                  <Link to="/initiate-sale" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                    Sell Land
+                  </Link>
+                </>
+              )}
+              
+              {user && user.role === 'revenue_officer' && (
+                <Link to="/revenue-dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                  Revenue Dashboard
+                </Link>
+              )}
+              
+              {user && user.role === 'bank_manager' && (
+                <Link to="/bank-dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                  Bank Dashboard
+                </Link>
+              )}
+              
+              {user && user.role === 'sub_registrar' && (
+                <Link to="/registrar-dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                  Registrar Dashboard
+                </Link>
+              )}
+            </div>
+          </div>
+          
+          <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {user ? (
-              <>
-                {/* Dashboard - Only when logged in */}
-                <Link 
-                  to="/dashboard" 
-                  className="text-white hover:text-blue-200 transition duration-300 flex items-center space-x-2"
-                >
-                  <FaList />
-                  <span>Dashboard</span>
-                </Link>
-                
-                {/* Register Land - Only when logged in */}
-                <Link 
-                  to="/register-land" 
-                  className="text-white hover:text-blue-200 transition duration-300 flex items-center space-x-2"
-                >
-                  <FaPlus />
-                  <span>Register Land</span>
-                </Link>
-                
-                {/* Profile Dropdown - Only when logged in */}
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                    className="text-white hover:text-blue-200 transition duration-300 flex items-center space-x-2 focus:outline-none"
-                  >
-                    <FaUser />
-                    <span>Profile</span>
-                    <FaChevronDown className={`text-sm transition-transform duration-200 ${showProfileDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {/* Dropdown Menu */}
-                  {showProfileDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50">
-                      <button
-                        onClick={handleProfileClick}
-                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center space-x-2"
-                      >
-                        <FaUser className="text-blue-600" />
-                        <span>My Profile</span>
-                      </button>
-                      <hr className="my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center space-x-2"
-                      >
-                        <FaSignOutAlt className="text-red-600" />
-                        <span>Logout</span>
-                      </button>
-                    </div>
-                  )}
+              <div className="flex items-center space-x-4">
+                <NotificationBell />
+                <div className="relative">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      {user.fullName || user.employeeId}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                      {user.role.replace('_', ' ')}
+                    </span>
+                  </div>
                 </div>
-              </>
+                <button
+                  onClick={handleLogout}
+                  className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
-              <>
-                {/* Login - Only when NOT logged in */}
-                <Link 
-                  to="/login" 
-                  className="text-white hover:text-blue-200 transition duration-300 flex items-center space-x-2"
+              <div className="flex space-x-4">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <FaSignInAlt />
-                  <span>Login</span>
+                  Login
                 </Link>
-                
-                {/* Sign Up - Only when NOT logged in */}
-                <Link 
-                  to="/signup" 
-                  className="bg-white text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-semibold transition duration-300 flex items-center space-x-2"
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <FaUserPlus />
-                  <span>Sign Up</span>
+                  Sign Up
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
