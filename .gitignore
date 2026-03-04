@@ -41,3 +41,7 @@ data/
 
 # OCR trained data (large file)
 backend/eng.traineddata
+
+# Fabric binaries (too large, download separately)
+bin/
+reference/
