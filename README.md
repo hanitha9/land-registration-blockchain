@@ -350,5 +350,5 @@ This project is licensed under the MIT License.
 ---
 
 <div align="center">
-Built with ❤️ using Hyperledger Fabric — where fraud prevention is enforced at the ledger level.
+Built  using Hyperledger Fabric — where fraud prevention is enforced at the ledger level.
 </div>
